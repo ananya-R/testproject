@@ -1,4 +1,6 @@
 const express= require("express");
+
+const path = require('path');
 const app=express();
 const bodyParser = require('body-parser')
 const http = require('http').Server(app);
@@ -6,10 +8,6 @@ const io = require('socket.io')(http);
 require("dotenv").config();
 const mysql      = require('mysql');
 var generatePassword = require("password-generator");
-// const EventEmitter = require('events');
-// class MyEmitter extends EventEmitter {}
-// const myEmitter = new MyEmitter();
-// myEmitter.setMaxListeners(15);
 const connection = mysql.createConnection({
   host     : process.env.host,
   user     : process.env.user,
@@ -17,8 +15,10 @@ const connection = mysql.createConnection({
   password : process.env.password,
   database : process.env.db
 });
-app.use( bodyParser.json() );       // to support JSON-encoded bodies
-app.use(bodyParser.urlencoded({     // to support URL-encoded bodies
+
+var PORT = process.env.PORT || 3010;
+app.use( bodyParser.json() );
+app.use(bodyParser.urlencoded({ 
   extended: true
 })); 
 app.use(function(req, res, next) {
@@ -34,13 +34,13 @@ app.use(function(req, res, next) {
     next();
   });
 // io.on('connection', () => { /* … */ });
-
+app.use(express.static(path.join(__dirname, './build')));
 const csvFilePath='./docs/BeetleNut_Data.csv'
 const admin={
     username:'admin',
     password:'admin@123'
 }
-
+let user;
 function renameKey ( obj, oldKey, newKey ) {
     obj[newKey] = obj[oldKey];
     delete obj[oldKey];
@@ -84,6 +84,10 @@ connection.connect( (err) =>
     //         });
     // })
 
+app.get('/', (req,res) => {
+  res.sendFile(path.join(__dirname, './build/index.html'));
+});
+
 
 app.post('/getData',function(req,res){
     let x=[];
@@ -94,7 +98,7 @@ app.post('/getData',function(req,res){
                 connection.query("SELECT Branch_Name,Address,City,Branch_Incharge,Contact_Number,Pincode_Covered from beetle_copy",function(err,result,fields){
                     if (err) console.log(err);
                   if(result.length==0){
-                    res.send({"message":"Bad Bad luck, No Donut for you!!"});
+                    res.send({"status":"Failed","message":"Bad Bad luck, No Donut for you!!"});
                   }
                   else{
                     result.forEach(element => {
@@ -116,13 +120,46 @@ app.post('/getData',function(req,res){
     })
 })
 
+app.post('/admin',function(req,res){
+  if(req.body.username==admin.username && req.body.password==admin.password){
+    connection.query("SELECT Customer_Data,Customer_Pincode,Date from  notifications",function(err,result,fields){
+      if (err) throw err;
+      else{
+        let y=JSON.parse(JSON.stringify(result));
+        let c_data=[];
+        y.forEach(el => {
+          el.Date=el.Date.split('T')[0];
+            c_data.push({'contact':el.Customer_Data,'pincode':el.Customer_Pincode,'date':el.Date});
+        })
+        res.send([{'status':'Success','CData':c_data}]);
+      }
+    });
+  }
+  else{
+    res.send([{'status':'Failed'}]);
+  }
+})
+
 app.post('/verify',function(req,res){
-    console.log(req.body);
-    connection.query("SELECT Password from beetle_copy where Username='"+req.body.username+"'" ,function(err, result, fields){ 
+    connection.query("SELECT Password,Pincode,Pincode_Covered from beetle_copy where Username='"+req.body.username+"'" ,function(err, result, fields){ 
     if (err) throw err;
         let x=JSON.parse(JSON.stringify(result));
         if(req.body.password==x[0].Password){
-            res.send([{'status':'Success','message':'Success'}])
+            let p=x[0].Pincode_Covered.split(',');
+            connection.query("SELECT Customer_Data,Customer_Pincode,Date from  notifications",function(err,result,fields){
+              if (err) throw err;
+              else{
+                let y=JSON.parse(JSON.stringify(result));
+                let c_data=[];
+                y.forEach(el => {
+                  if(el.Customer_Pincode==x[0].Pincode || p.includes(el.Customer_Pincode)){
+                    el.Date=el.Date.split('T')[0];
+                    c_data.push({'contact':el.Customer_Data,'date':el.Date});
+                  }
+                })
+                res.send([{'Pincode':x[0].Pincode,'status':'Success','message':'Success','Pincode_Covered':p,'CData':c_data}]);
+              }
+            });
         }
         else{
             res.send([{'status':'Failed','message':'Invalid Credentials'}])
@@ -132,28 +169,25 @@ app.post('/verify',function(req,res){
     
 let interval;
 
-io.on("connection", (socket) => {
-  console.log("New client connected");
-  socket.on('message', (data)=>{
+io.on("connection", socket => {
+  socket.on('notification', data => {
     console.log(data);
-    socket.broadcast.emit('message','message321');
-    socket.on('message',(data)=>{io.emit('createmessage','hello')});
+    connection.query("INSERT INTO notifications (Customer_Data,Customer_Pincode,Date) VALUES ('"+data.customer.contact+"','"+data.customer.pincode+"', STR_TO_DATE('"+data.date+"','%Y-%m-%d'))", (err,result,fields) => {
+      if(err) throw err;
+    });
+    socket.emit('message',[{
+      'contact':data.customer.contact,
+      'pincode':data.customer.pincode,
+      'date':data.date
+    }]);
   });
-  // if (interval) {
-  //   clearInterval(interval);
-  // }
-  // interval = setInterval(() => getApiAndEmit(socket), 500);
-  // socket.on("disconnect", () => {
-  //   console.log("Client disconnected");
-  //   clearInterval(interval);
-  // });
 });
 
-const getApiAndEmit = socket => {
+// const getApiAndEmit = socket => {
   
-  // myEmitter.emit('message');
-};
+//   // myEmitter.emit('message');
+// };
 
-http.listen(3010);
+http.listen(PORT);
 
 

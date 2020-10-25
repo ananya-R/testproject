@@ -4,6 +4,7 @@ import './App.css';
 import {Link,Route} from 'react-router-dom';
 import Customer from './components/customers';
 import BranchManager from './components/BranchManager';
+import Administrator from './components/Administrators';
 import {Nav, Navbar, NavItem} from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
@@ -14,7 +15,7 @@ function App() {
     <Nav className="mr-auto">
       <Nav.Link as={Link} to="/customers">Customers</Nav.Link>
       <Nav.Link as={Link} to="/branchmanager">Branch Managers</Nav.Link>
-      <Nav.Link >Administrators</Nav.Link>
+      <Nav.Link as={Link} to="/administrator">Administrators</Nav.Link>
     </Nav>
   </Navbar>
      {/* <ul className="ul">
@@ -25,6 +26,7 @@ function App() {
 
      <Route path="/customers" component={Customer}></Route>
      <Route path="/branchmanager" component={BranchManager}></Route>
+     <Route path="/administrator" component={Administrator}></Route>
     </div>
   );
 }

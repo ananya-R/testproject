@@ -68,3 +68,29 @@ input[type="submit" i]{
 input[type="text"] {
   margin-left: 6px;
 }
+
+.notifications{
+margin-left: 56rem;
+background-color: aliceblue;
+}
+
+.notificationsmain{
+  height: 20rem;
+  overflow-y: auto;
+  margin-right: 18px;
+
+}
+
+.mainBranch{
+  display: flex ;
+}
+
+.notificationsList{
+  /* list-style: none; */
+}
+
+.notificationaction{
+  margin-left: 185px;
+  width: 30%;
+  background-color: aliceblue;
+}
